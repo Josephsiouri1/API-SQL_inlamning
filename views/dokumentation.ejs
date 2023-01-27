@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Dokumentation</title>
+  </head>
+  <body>
+    <h1>Dokumentation av det här APIet</h1>
+    <h2>Routes</h2>
+
+    <ul>
+      <li><em>GET /employees</em> - returnerar alla användare.</li>
+      <li>
+        <em>GET /employees/{id}</em> - returnerar en user med angivet id eller
+        status 404 om användaren saknas.
+      </li>
+      <li>
+        <em>POST /addemployee</em> - skapar en ny användare JSON objekt på
+        formatet {"username":"unikt namen", "firstname":"",
+        "lastname":""}.username är obligatoriskt och ska vara unikt.
+      </li>
+      <li>
+        <em>POST /login</em> - för inloggning. Returnerar en JWT som används som
+        bearer token i anrop till routes skyddade med auth. Accepterar JSON
+        objekt på formatet {"username":"", "password":""}.
+      </li>
+      <li>
+        <em>PUT /update/{id}</em> - för uppdatering. Denna anropning ger
+        möjlighet till användaren att uppdatera uppdatera data som redan finns i
+        databasen.
+      </li>
+    </ul>
+  </body>
+</html>
