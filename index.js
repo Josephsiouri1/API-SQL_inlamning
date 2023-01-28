@@ -4,6 +4,8 @@ let app = express();
 
 const bcrypt = require("bcrypt");
 
+const jwt = require("jsonwebtoken");
+
 const mysql = require("mysql");
 
 app.use(express.json());
@@ -73,7 +75,12 @@ app.get("/employees/:id", function (req, res) {
 app.post("/addemployee", function (req, res) {
   console.log(req.body);
   if (isValidUserData(req.body)) {
-    let sql = `INSERT INTO employees (username, firstname, lastname,password, salary) VALUES ('${req.body.username}','${req.body.firstname}',${req.body.employeeId} ,'${req.body.password}', '${req.body.salary}')`;
+    let sql = `INSERT INTO employees (username, firstname, lastname,password, salary) VALUES ('${
+      req.body.username
+    }','${req.body.firstname}',${req.body.employeeId} ,'${bcrypt.hash(
+      req.body.password,
+      10
+    )}', '${req.body.salary}')`;
     con.query(sql, function (err, result, fields) {
       if (result) {
         res.send("New data has successfully been added to the database.");
@@ -106,7 +113,7 @@ app.put("/update/:id", (req, res) => {
     !req.body.password ||
     !req.body.salary
   ) {
-    return res.status(400).send("More data is required to update.");
+    res.status(400).send("More data is required to update.");
   }
 
   let hashedPassword = bcrypt.hash(req.body.password, 10);
@@ -126,7 +133,7 @@ app.put("/update/:id", (req, res) => {
   // Kör SQL-satsen
   con.query(sql, updateData, (error, results) => {
     if (error) {
-      return res
+      res
         .status(500)
         .send("Error while updating employee with employee id " + id);
     }
@@ -143,12 +150,12 @@ app.post("/login", async (req, res) => {
   // hämta användaren från databasen
 
   const result = con.query(
-    `SELECT * FROM employees WHERE username = ${username}`
+    "SELECT * FROM employees WHERE username ='" + username + "'"
   );
 
   // om användaren inte finns, returnera ett felmeddelande
   if (result.recordset.length === 0) {
-    return res.status(401).send("Invalid username or password");
+    res.status(401).send("Invalid username or password");
   }
 
   // hämta hashat lösenord från databasen
@@ -159,17 +166,31 @@ app.post("/login", async (req, res) => {
 
   // om lösenorden matchar, returnera användardata
   if (isMatch) {
-    const userData = {
+    let userData = {
       employeeId: result.recordset[0].employeeId,
       username: result.recordset[0].username,
       firstname: result.recordset[0].firstname,
       lastname: result.recordset[0].lastname,
       employeeId: result.recordset[0].salary,
     };
-    return res.status(200).json(userData);
+    // Skapa en tidsbegränsad JWT
+    const token = jwt.sign(
+      {
+        sub: userData.employeeId,
+        iat: Date.now(),
+      },
+      "mysecretkey",
+      { expiresIn: "1h" }
+    );
+    res.json({
+      message: "Inloggning lyckades",
+      token,
+    });
+
+    // return res.status(200).json(userData);
   } else {
     // annars returnera ett felmeddelande
-    return res.status(401).send("Invalid username or password");
+    res.status(401).send("Invalid username or password");
   }
 });
 console.log("Servern körs på port 3000");
