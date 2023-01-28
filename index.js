@@ -27,15 +27,34 @@ app.get("/", function (req, res) {
 });
 
 const COLUMNS = [
+  "employeeId",
   "username",
   "firstname",
   "lastname",
-  "userId",
   "password",
   "salary",
 ];
 
-app.get("/employees", function (req, res) {
+// Middleware för validering av token
+
+const validateToken = (req, res, next) => {
+  const token = req.headers["x-access-token"];
+
+  if (!token) {
+    return res.status(401).json("Ingen token tillhandahållen");
+  }
+
+  jwt.verify(token, secret, (error, decoded) => {
+    if (error) {
+      return res.status(401).json("Ogiltig token");
+    }
+
+    req.employeeId = decoded.id;
+    next();
+  });
+};
+
+app.get("/employees", validateToken, function (req, res) {
   let sql = "SELECT * FROM employees";
   let condition = createCondition(req.query); //skickar objektet utifrån URL data.
 
