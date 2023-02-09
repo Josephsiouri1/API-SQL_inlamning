@@ -2,7 +2,14 @@ let express = require("express");
 
 let app = express();
 
-const bcrypt = require("bcrypt");
+let bcrypt = require("bcrypt");
+
+const crypto = require("crypto");
+function hash(data) {
+  const hash = crypto.createHash("sha256");
+  hash.update(data);
+  return hash.digest("hex");
+}
 
 const jwt = require("jsonwebtoken");
 
@@ -20,6 +27,7 @@ con = mysql.createConnection({
   options: {
     encrypt: true,
   },
+  multipleStatements: true,
 });
 
 app.get("/", function (req, res) {
@@ -92,16 +100,19 @@ app.get("/employees/:id", function (req, res) {
 });
 
 app.post("/addemployee", function (req, res) {
-  console.log(req.body);
   if (isValidUserData(req.body)) {
-    let sql = `INSERT INTO employees (username, firstname, lastname,password, salary) VALUES ('${
-      req.body.username
-    }','${req.body.firstname}',${req.body.employeeId} ,'${bcrypt.hash(
-      req.body.password,
-      10
-    )}', '${req.body.salary}')`;
-    con.query(sql, function (err, result, fields) {
-      if (result) {
+    saltRounds = 10;
+    const hashedPassword = hash(req.body.password);
+
+    let sql = `INSERT INTO employees (username, firstname, lastname, password, salary) VALUES ('${req.body.username}','${req.body.firstname}','${req.body.lastname}' ,'${hashedPassword}', '${req.body.salary}')`;
+
+    con.query(sql, function (err, result) {
+      if (err) {
+        console.error(err);
+        res
+          .status(500)
+          .send("Någonting gick fel när användaren skulle läggas till.");
+      } else {
         res.send("New data has successfully been added to the database.");
       }
     });
@@ -135,7 +146,7 @@ app.put("/update/:id", (req, res) => {
     res.status(400).send("More data is required to update.");
   }
 
-  let hashedPassword = bcrypt.hash(req.body.password, 10);
+  let hashedPassword = hash(req.body.password);
 
   // Skapar en variabel för uppdateringssatsen
   let updateData = {
@@ -161,27 +172,46 @@ app.put("/update/:id", (req, res) => {
   });
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", function (req, res) {
   // hämta användarnamnet och lösenordet från inkommande data
   let username = req.body.username;
   let password = req.body.password;
 
   // hämta användaren från databasen
+  let sql1 = `SELECT * FROM employees WHERE username = '${username}'`;
 
-  const result = con.query(
-    "SELECT * FROM employees WHERE username ='" + username + "'"
-  );
-
-  // om användaren inte finns, returnera ett felmeddelande
-  if (result.recordset.length === 0) {
-    res.status(401).send("Invalid username or password");
-  }
+  con.query(sql1, function (err, result) {
+    // om användaren inte finns, returnera ett felmeddelande
+    if (err) {
+      console.error(err);
+      res.status(500).send("Någonting gick fel");
+    }
+    if (!result) {
+      res.status(401).send("Invalid username ");
+    }
+  });
 
   // hämta hashat lösenord från databasen
-  const dbPassword = result.recordset[0].password;
+
+  let sql2 = `SELECT * FROM employees WHERE password = '${hash(password)}'`;
+
+  let result = con.query(sql2, function (err, result) {
+    // om användaren inte finns, returnera ett felmeddelande
+    if (err) {
+      console.error(err);
+      res.status(500).send("Någonting gick fel");
+    }
+    if (!result) {
+      res.status(401).send("Invalid  password");
+    } else {
+      return result;
+    }
+  });
+
+  let dbPassword = result[0].password;
 
   // jämför inkommande lösenord med hashat lösenord från databasen
-  const isMatch = bcrypt.compare(password, dbPassword);
+  let isMatch = bcrypt.compare(password, dbPassword);
 
   // om lösenorden matchar, returnera användardata
   if (isMatch) {
