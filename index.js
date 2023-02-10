@@ -43,25 +43,6 @@ const COLUMNS = [
   "salary",
 ];
 
-// Middleware för validering av token
-
-const validateToken = (req, res, next) => {
-  const token = req.headers["x-access-token"];
-
-  if (!token) {
-    return res.status(401).json("Ingen token tillhandahållen");
-  }
-
-  jwt.verify(token, secret, (error, decoded) => {
-    if (error) {
-      return res.status(401).json("Ogiltig token");
-    }
-
-    req.employeeId = decoded.id;
-    next();
-  });
-};
-
 app.get("/employees", validateToken, function (req, res) {
   let sql = "SELECT * FROM employees";
   let condition = createCondition(req.query); //skickar objektet utifrån URL data.
@@ -165,6 +146,7 @@ app.put("/update/:id", (req, res) => {
     if (error) {
       res
         .status(500)
+
         .send("Error while updating employee with employee id " + id);
     }
 
@@ -172,76 +154,39 @@ app.put("/update/:id", (req, res) => {
   });
 });
 
-app.post("/login", function (req, res) {
-  // hämta användarnamnet och lösenordet från inkommande data
+app.post("/login", (req, res) => {
   let username = req.body.username;
   let password = req.body.password;
 
-  // hämta användaren från databasen
-  let sql1 = `SELECT * FROM employees WHERE username = '${username}'`;
-
-  con.query(sql1, function (err, result) {
-    // om användaren inte finns, returnera ett felmeddelande
-    if (err) {
-      console.error(err);
-      res.status(500).send("Någonting gick fel");
+  let sql = `SELECT * FROM employees WHERE username = ${username}`;
+  con.query(sql, async (error, results) => {
+    if (error) {
+      console.log(error);
+      return res.status(500).send("Internal server error");
     }
-    if (!result) {
-      res.status(401).send("Invalid username ");
+    if (!results.length) {
+      return res.status(400).send("Incorrect username or password");
     }
-  });
-
-  // hämta hashat lösenord från databasen
-
-  let sql2 = `SELECT * FROM employees WHERE password = '${hash(password)}'`;
-
-  let result = con.query(sql2, function (err, result) {
-    // om användaren inte finns, returnera ett felmeddelande
-    if (err) {
-      console.error(err);
-      res.status(500).send("Någonting gick fel");
+    let employee = results[0];
+    let isPasswordValid = await bcrypt.compare(password, employee.password);
+    if (!isPasswordValid) {
+      return res.status(400).send("Incorrect username or password");
     }
-    if (!result) {
-      res.status(401).send("Invalid  password");
-    } else {
-      return result;
-    }
-  });
 
-  let dbPassword = result[0].password;
+    let secretKey = "mysecretkey";
+    let expiresIn = "1h";
+    let token = jwt.sign({ username }, secretKey, { expiresIn });
 
-  // jämför inkommande lösenord med hashat lösenord från databasen
-  let isMatch = bcrypt.compare(password, dbPassword);
-
-  // om lösenorden matchar, returnera användardata
-  if (isMatch) {
-    let userData = {
-      employeeId: result.recordset[0].employeeId,
-      username: result.recordset[0].username,
-      firstname: result.recordset[0].firstname,
-      lastname: result.recordset[0].lastname,
-      employeeId: result.recordset[0].salary,
-    };
-    // Skapa en tidsbegränsad JWT
-    const token = jwt.sign(
-      {
-        sub: userData.employeeId,
-        iat: Date.now(),
-      },
-      "mysecretkey",
-      { expiresIn: "1h" }
-    );
-    res.json({
-      message: "Inloggning lyckades",
+    res.status(200).send({
+      username: employee.username,
+      firstname: employee.firstname,
+      lastname: employee.lastname,
+      salary: employee.salary,
       token,
     });
-
-    // return res.status(200).json(userData);
-  } else {
-    // annars returnera ett felmeddelande
-    res.status(401).send("Invalid username or password");
-  }
+  });
 });
+
 console.log("Servern körs på port 3000");
 
 app.listen(3000);
