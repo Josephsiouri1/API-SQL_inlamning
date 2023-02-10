@@ -43,7 +43,17 @@ const COLUMNS = [
   "salary",
 ];
 
-app.get("/employees", validateToken, function (req, res) {
+// Funktion för att validera användaruppgifter
+function validateEmployee(username, password) {
+  for (let employee of COLUMNS) {
+    if (employee.username === username && employee.password === password) {
+      return employee;
+    }
+  }
+  return null;
+}
+
+app.get("/employees", validateEmployee, function (req, res) {
   let sql = "SELECT * FROM employees";
   let condition = createCondition(req.query); //skickar objektet utifrån URL data.
 
@@ -158,7 +168,7 @@ app.post("/login", (req, res) => {
   let username = req.body.username;
   let password = req.body.password;
 
-  let sql = `SELECT * FROM employees WHERE username = ${username}`;
+  let sql = `SELECT * FROM employees WHERE username = '${username}'`;
   con.query(sql, async (error, results) => {
     if (error) {
       console.log(error);
@@ -168,6 +178,7 @@ app.post("/login", (req, res) => {
       return res.status(400).send("Incorrect username or password");
     }
     let employee = results[0];
+
     let isPasswordValid = await bcrypt.compare(password, employee.password);
     if (!isPasswordValid) {
       return res.status(400).send("Incorrect username or password");
