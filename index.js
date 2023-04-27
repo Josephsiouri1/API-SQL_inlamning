@@ -179,7 +179,7 @@ app.post("/login", (req, res) => {
     }
     let employee = results[0];
 
-    let isPasswordValid = await bcrypt.compare(password, employee.password);
+    let isPasswordValid = await bcrypt.compare(password, employee.password); //bycryot funktionen förutom att den krypterar lösenordet, så kan den jämföra två lösenord där den en av de är krypterad och den andra är inte.
     if (!isPasswordValid) {
       return res.status(400).send("Incorrect username or password");
     }
